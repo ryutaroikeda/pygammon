@@ -1,0 +1,6 @@
+from typing import List, Tuple, Optional, Callable, Union, IO, Any
+
+class ndarray:
+	...
+
+def zeros(size: int, dtype: Optional[Any]) -> ndarray: ...

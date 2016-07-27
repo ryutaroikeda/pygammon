@@ -7,4 +7,4 @@ test:
 tags:
 	ctags -R pygammon
 
-.PHONY: test tags
+.PHONY: activate lint test tags
