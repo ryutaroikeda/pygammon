@@ -2,7 +2,7 @@ type:
 	env MYPYPATH=stubs mypy pygammon --strict-optional
 
 lint:
-	oylint pygammon
+	pylint pygammon
 
 test:
 	python -m unittest discover -s tests

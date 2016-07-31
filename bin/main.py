@@ -5,3 +5,4 @@ color = Color.Black
 
 board = Board()
 
+board.print()
