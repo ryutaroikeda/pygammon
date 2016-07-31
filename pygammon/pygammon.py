@@ -1,4 +1,5 @@
 from enum import Enum
+import sys
 
 import numpy as np
 
@@ -7,7 +8,7 @@ class Color(Enum):
     Black = 0
     White = 1
 
-    def opposite(self) -> Color:
+    def opposite(self) -> 'Color':
         if Color.Black == self.value:
             return Color.White
         else:
@@ -55,7 +56,14 @@ class Board:
         return 1 < checkers
 
     def is_all_home(self, color: Color) -> bool:
+        board = self.get_board(color)
         for pos in range(Board.BAR_POS, Board.AWAY_POS):
+            if 0 < board[pos]:
+                return False
+        return True
+
+    def is_least_advanced_pos(self, color: Color, test_pos: int) -> bool:
+        for pos in range(Board.BAR_POS, test_pos):
             if 0 < self.get_checkers(color, pos):
                 return False
         return True
@@ -67,12 +75,37 @@ class Board:
         # Make sure the destination is not blocked.
         if self.is_blocked(color, submove.source):
             return False
-        # Make sure the bar is empty or we're moving from the bar.
+        # Make sure the bar is empty or we're getting out the bar.
         if (0 < self.get_checkers(color, submove.source)) and \
                 (Board.BAR_POS != submove.source):
             return False
-        # Make sure everyone is home if bearing off.
-        if (Board.BEARING_OFF_POS == submove.destination) and \
-                (not self.is_all_home(color)):
-            return False
+        # We're bearing off a checker.
+        if Board.BEARING_OFF_POS == submove.destination:
+            # Make sure everyone is home.
+            if not self.is_all_home(color):
+                return False
+            # If there's no checker on the point rolled, make sure we're
+            # bearing off from the highest point.
+            if (submove.source + submove.die != Board.BEARING_OFF_POS) and \
+                    (not self.is_least_advanced_pos(color, submove.source)):
+                return False
         return True
+
+    def do_submove(self, color: Color, submove: Submove) -> None:
+        board = self.get_board(color)
+        # Move the checker
+        destination = submove.destination()
+        board[submove.source] -= 1
+        board[destination] += 1
+        # If we're hitting a blot, send it to the bar.
+        # But don't hit anything in the opponent's bar.
+        if (Board.BEARING_OFF_POS != destination) and \
+                (1 == self.get_checkers(color.opposite(), destination)):
+            other_board = self.get_board(color.opposite())
+            other_board[Board.BAR_POS] += 1
+            other_board[Board.BOARD_SIZE - destination] = 0
+
+    def print(self) -> None:
+        for pos in range(13, 19):
+            sys.stdout.write(str(pos))
+
