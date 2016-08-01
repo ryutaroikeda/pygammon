@@ -1,9 +1,13 @@
 """This module provides an engine for backgammon."""
 
+import copy
 from enum import Enum
+from typing import Dict, List
 import sys
 
 import numpy as np
+
+DICE = List[int]
 
 class Color(Enum):
     """Represent the colors of players."""
@@ -21,9 +25,9 @@ class Color(Enum):
 class Submove:
     """Represent each movement in a move."""
 
-    def __init__(self) -> None:
-        self.source = 0
-        self.die = 0
+    def __init__(self, vals: Dict[str, int]) -> None:
+        self.source = vals['source']
+        self.die = vals['die']
 
     def destination(self) -> int:
         """This is where the checker moves to."""
@@ -31,6 +35,24 @@ class Submove:
         if Board.BEARING_OFF_POS < dst:
             dst = Board.BEARING_OFF_POS
         return dst
+
+class Move:
+    """Represent a player's move."""
+
+    def __init__(self, vals: Dict[str, List[Submove]]) -> None:
+        self.submoves = vals['submoves']
+
+    def size(self) -> int:
+        """Return the number of submoves in the move."""
+        return len(self.submoves)
+
+    def push(self, submove: Submove) -> None:
+        """Add a submove to the move."""
+        self.submoves.append(submove)
+
+    def pop(self) -> Submove:
+        """Get the next submove of this move and remove it."""
+        return self.submoves.pop()
 
 class Board:
     """Represent the game state."""
@@ -55,7 +77,7 @@ class Board:
         """Get the number of checkers."""
         board = self.get_board(color)
         if Color.White == color:
-            pos = Board.BOARD_SIZE - pos
+            pos = Board.BEARING_OFF_POS - pos
         return board[pos]
 
     def is_blocked(self, color: Color, pos: int) -> bool:
@@ -119,6 +141,48 @@ class Board:
             other_board[Board.BAR_POS] += 1
             other_board[Board.BOARD_SIZE - destination] = 0
 
+    def list_submoves(self, color: Color, die: int) -> List[Submove]:
+        """List legal submoves given the die roll."""
+        submoves = [] # type: List[Submove]
+        for pos in range(Board.BAR_POS, Board.BEARING_OFF_POS):
+            submove = Submove({'source': pos, 'die': die})
+            if self.is_valid_submove(color, submove):
+                submoves.append(submove)
+        return submoves
+
+    def list_moves_with_ordered_dice_r(
+            self, color: Color, dice: DICE) -> List[Move]:
+        """List moves using the given order of dice. The moves are not always
+        legal."""
+        result = [] # type: List[Move]
+        if 0 == len(dice):
+            return result
+        die = dice[0]
+        rest = dice[1:]
+        submoves = self.list_submoves(color, die)
+        for submove in submoves:
+            board = copy.deepcopy(self)
+            board.do_submove(color, submove)
+            moves = board.list_moves_with_ordered_dice_r(color, rest)
+            for move in moves:
+                move.submoves.append(submove)
+            result += moves
+        return result
+
+    def list_moves(self, color: Color, dice: DICE) -> List[Move]:
+        """List legal moves."""
+        if dice[0] == dice[1]:
+            # When we roll a double, the order doesn't matter.
+            return self.list_moves_with_ordered_dice_r(color, [dice[0]] * 4)
+        high_roll = max(dice)
+        low_roll = min(dice)
+        high_moves = self.list_moves_with_ordered_dice_r(
+            color, [high_roll, low_roll])
+        low_moves = self.list_moves_with_ordered_dice_r(
+            color, [low_roll, high_roll])
+
+        return high_moves
+
     def print_checker(self, pos: int) -> None:
         """Print a point."""
         black_checkers = self.get_checkers(Color.Black, pos)
@@ -146,3 +210,25 @@ class Board:
         sys.stdout.write('    ')
         for pos in range(19, 25):
             self.print_checker(pos)
+        sys.stdout.write('    ')
+        sys.stdout.write('Black off: {}'.format(self.get_checkers(
+            Color.Black, Board.BEARING_OFF_POS)))
+        sys.stdout.write('\n')
+        for pos in range(12, 6, -1):
+            self.print_checker(pos)
+        sys.stdout.write('    ')
+        for pos in range(6, 0, -1):
+            self.print_checker(pos)
+        sys.stdout.write('    ')
+        sys.stdout.write('White bar: {}'.format(self.get_checkers(
+            Color.White, Board.BAR_POS)))
+        sys.stdout.write('\n')
+        for pos in range(12, 6, -1):
+            sys.stdout.write(' {:>2} '.format(pos))
+        sys.stdout.write('    ')
+        for pos in range(6, 0, -1):
+            sys.stdout.write(' {:>2} '.format(pos))
+        sys.stdout.write('    ')
+        sys.stdout.write('White off: {}'.format(self.get_checkers(
+            Color.White, Board.BEARING_OFF_POS)))
+        sys.stdout.write('\n')

@@ -1,3 +1,5 @@
+analyze: type lint test
+
 type:
 	env MYPYPATH=stubs mypy pygammon --strict-optional
 
