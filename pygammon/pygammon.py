@@ -1,4 +1,4 @@
-"""This module provides an engine for backgammon."""
+"""An engine for backgammon."""
 
 import copy
 from enum import Enum
@@ -73,18 +73,26 @@ class Board:
         else:
             return self.white_board
 
+    @staticmethod
+    def get_oppoisite_pos(pos: int) -> int:
+        """Get the position from the point of view of the other player."""
+        return Board.BEARING_OFF_POS - pos
+
     def get_checkers(self, color: Color, pos: int) -> bool:
-        """Get the number of checkers."""
+        """Get the number of checkers of color."""
         board = self.get_board(color)
-        if Color.White == color:
-            pos = Board.BEARING_OFF_POS - pos
         return board[pos]
+
+    def get_opposite_checkers(self, color: Color, pos: int) -> bool:
+        """Get the number of checkers of opposite color."""
+        board = self.get_board(color.opposite())
+        return board[self.get_oppoisite_pos(pos)]
 
     def is_blocked(self, color: Color, pos: int) -> bool:
         """Check if the point is blocked by the opponent."""
         if Board.BEARING_OFF_POS == pos:
             return False
-        checkers = self.get_checkers(color.opposite(), pos)
+        checkers = self.get_opposite_checkers(color, pos)
         return 1 < checkers
 
     def is_all_home(self, color: Color) -> bool:
@@ -111,11 +119,11 @@ class Board:
         if self.is_blocked(color, submove.source):
             return False
         # Make sure the bar is empty or we're getting out the bar.
-        if (0 < self.get_checkers(color, submove.source)) and \
+        if (0 < self.get_checkers(color, Board.BAR_POS)) and \
                 (Board.BAR_POS != submove.source):
             return False
         # We're bearing off a checker.
-        if Board.BEARING_OFF_POS == submove.destination:
+        if Board.BEARING_OFF_POS == submove.destination():
             # Make sure everyone is home.
             if not self.is_all_home(color):
                 return False
@@ -136,10 +144,10 @@ class Board:
         # If we're hitting a blot, send it to the bar.
         # But don't hit anything in the opponent's bar.
         if (Board.BEARING_OFF_POS != destination) and \
-                (1 == self.get_checkers(color.opposite(), destination)):
+                (1 == self.get_opposite_checkers(color, destination)):
             other_board = self.get_board(color.opposite())
             other_board[Board.BAR_POS] += 1
-            other_board[Board.BOARD_SIZE - destination] = 0
+            other_board[Board.get_oppoisite_pos(destination)] = 0
 
     def list_submoves(self, color: Color, die: int) -> List[Submove]:
         """List legal submoves given the die roll."""
@@ -164,24 +172,49 @@ class Board:
             board = copy.deepcopy(self)
             board.do_submove(color, submove)
             moves = board.list_moves_with_ordered_dice_r(color, rest)
+            # We didn't find any moves. Create an empty move to add submoves.
+            if 0 == len(moves):
+                moves.append(Move({'submoves': []}))
             for move in moves:
-                move.submoves.append(submove)
+                move.push(submove)
             result += moves
         return result
 
     def list_moves(self, color: Color, dice: DICE) -> List[Move]:
         """List legal moves."""
+        # We rolled a double.
         if dice[0] == dice[1]:
             # When we roll a double, the order doesn't matter.
             return self.list_moves_with_ordered_dice_r(color, [dice[0]] * 4)
+        # We didn't roll a double.
         high_roll = max(dice)
         low_roll = min(dice)
         high_moves = self.list_moves_with_ordered_dice_r(
             color, [high_roll, low_roll])
         low_moves = self.list_moves_with_ordered_dice_r(
             color, [low_roll, high_roll])
+        both_dice_moves = []
+        can_play_both_dice = False
 
-        return high_moves
+        for move in high_moves:
+            if 2 == move.size():
+                can_play_both_dice = True
+                both_dice_moves.append(move)
+
+        for move in low_moves:
+            if 2 == move.size():
+                can_play_both_dice = True
+                both_dice_moves.append(move)
+
+        # Make sure we use all possible dice.
+        if can_play_both_dice:
+            return both_dice_moves
+
+        # Make sure we play the highest possible die.
+        if 0 < len(high_moves):
+            return high_moves
+
+        return low_moves
 
     def print_checker(self, pos: int) -> None:
         """Print a point."""
