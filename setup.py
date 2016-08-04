@@ -5,7 +5,9 @@ config = {
         'author': 'Ryutaro Ikeda',
         'version': '0.1',
         'install_requires': [
-            'numpy'
+            'numpy',
+            'mypy-lang',
+            'pylint'
         ],
         'packages': [
             'pygammon'
