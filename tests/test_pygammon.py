@@ -4,6 +4,7 @@ import unittest
 from pygammon.pygammon import Board
 from pygammon.pygammon import Color
 from pygammon.pygammon import Submove
+from pygammon.pygammon import Move
 
 class TestColor(unittest.TestCase):
     """Tests for Color."""
@@ -11,6 +12,39 @@ class TestColor(unittest.TestCase):
     def test_opposite(self):
         """Make sure getting opposite color works."""
         self.assertEqual(Color.Black.opposite(), Color.White)
+
+class TestSubmove(unittest.TestCase):
+    """Tests for Submove."""
+
+    def test_eq_equal(self):
+        """Test that equality by value works."""
+        first = Submove(1, 1)
+        second = Submove(1, 1)
+        self.assertTrue(first == second)
+
+    def test_ne(self):
+        """Test that inequality works."""
+        first = Submove(1, 1)
+        second = Submove(1, 2)
+        self.assertTrue(first != second)
+
+class TestMove(unittest.TestCase):
+    """Tests for Move."""
+
+    def test_eq_equal_for_empty(self):
+        """Test that equality by value works."""
+        first = Move([])
+        second = Move([])
+        self.assertTrue(first == second)
+        first.push(Submove(1, 1))
+        second.push(Submove(1, 1))
+        self.assertTrue(first == second)
+
+    def test_ne(self):
+        """Test inequality works."""
+        first = Move([])
+        second = Move([Submove(1, 1)])
+        self.assertTrue(first != second)
 
 class TestBoard(unittest.TestCase):
     """Tests for Board."""
@@ -38,7 +72,7 @@ class TestBoard(unittest.TestCase):
         board = Board()
         black_board = board.get_board(Color.Black)
         black_board[1] = 1
-        submove = Submove({'source': 1, 'die': 1})
+        submove = Submove(1, 1)
         self.assertEqual(submove.destination(), 2)
         self.assertTrue(board.is_valid_submove(Color.Black, submove))
 

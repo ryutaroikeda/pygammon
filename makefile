@@ -1,16 +1,16 @@
 PYGAMMON_SRC := $(wildcard pygammon/*.py)
 TESTS_SRC := $(wildcard tests/*.py)
 
-all: .analyze_pygammon .analyze_tests test
+all: .analyze_pygammon.make .analyze_tests.make test
 
-.analyze_pygammon: $(PYGAMMON_SRC)
+.analyze_pygammon.make: $(PYGAMMON_SRC)
 	env MYPYPATH=stubs mypy pygammon --strict-optional \
 		--disallow-untyped-calls --disallow-untyped-defs \
 		--check-untyped-defs --warn-redundant-casts
 	pylint pygammon
 	touch "$@"
 
-.analyze_tests: $(TESTS_SRC)
+.analyze_tests.make: $(TESTS_SRC)
 	env MYPYPATH=stubs mypy tests --strict-optional \
 		--disallow-untyped-calls --check-untyped-defs \
 		--warn-redundant-casts

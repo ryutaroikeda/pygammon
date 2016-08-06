@@ -1,3 +1,5 @@
 venv
 tags
 *.pyc
+*.egg-info
+*.make

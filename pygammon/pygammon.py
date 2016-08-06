@@ -1,13 +1,19 @@
 """An engine for backgammon."""
 
+from abc import ABCMeta
+from abc import abstractmethod
 import copy
 from enum import Enum
-from typing import Dict, List
+from typing import List
+from typing import Union
 import sys
 
 import numpy as np
 
 DICE = List[int]
+
+class Error:
+    """Represent errors."""
 
 class Color(Enum):
     """Represent the colors of players."""
@@ -25,9 +31,17 @@ class Color(Enum):
 class Submove:
     """Represent each movement in a move."""
 
-    def __init__(self, vals: Dict[str, int]) -> None:
-        self.source = vals['source']
-        self.die = vals['die']
+    def __init__(self, source: int, die: int) -> None:
+        self.source = source
+        self.die = die
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Submove):
+            return False
+        return self.source == other.source and self.die == other.die
+
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
 
     def destination(self) -> int:
         """This is where the checker moves to."""
@@ -43,8 +57,21 @@ class Submove:
 class Move:
     """Represent a player's move."""
 
-    def __init__(self, vals: Dict[str, List[Submove]]) -> None:
-        self.submoves = vals['submoves']
+    def __init__(self, submoves: List[Submove]) -> None:
+        self.submoves = submoves
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Move):
+            return False
+        if self.size() != other.size():
+            return False
+        for submove_index in range(0, self.size()):
+            if self.submoves[submove_index] != other.submoves[submove_index]:
+                return False
+        return True
+
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
 
     def size(self) -> int:
         """Return the number of submoves in the move."""
@@ -65,6 +92,12 @@ class Move:
             submove.print()
             sys.stdout.write(', ')
         sys.stdout.write(']\n')
+
+class Player(metaclass=ABCMeta):
+    """Represent the player."""
+    @abstractmethod
+    def make_move(self, color: 'Color', board: 'Board', dice: DICE) -> Move:
+        """Make a move."""
 
 class Board:
     """Represent the game state."""
@@ -174,7 +207,7 @@ class Board:
         """List legal submoves given the die roll."""
         submoves = [] # type: List[Submove]
         for pos in range(Board.BAR_POS, Board.BEARING_OFF_POS):
-            submove = Submove({'source': pos, 'die': die})
+            submove = Submove(pos, die)
             if self.is_valid_submove(color, submove):
                 submoves.append(submove)
         return submoves
@@ -195,7 +228,7 @@ class Board:
             moves = board.list_moves_with_ordered_dice_r(color, rest)
             # We didn't find any moves. Create an empty move to add submoves.
             if 0 == len(moves):
-                moves.append(Move({'submoves': []}))
+                moves.append(Move([]))
             for move in moves:
                 move.push(submove)
             result += moves
@@ -234,10 +267,45 @@ class Board:
         # Make sure we play the highest possible die.
         if 0 < len(high_moves):
             return high_moves
-
         return low_moves
 
-    def print_checkers(self, pos: int) -> None:
+    def is_valid_move(self, color: Color, dice: DICE, move: Move) -> bool:
+        """Check if the move is legal."""
+        moves = self.list_moves(color, dice)
+        for legal_move in moves:
+            if legal_move == move:
+                return True
+        return False
+
+    def do_move(self, color: Color, move: Move) -> None:
+        """Play a move."""
+        for submove in reversed(move.submoves):
+            self.do_submove(color, submove)
+
+    def is_winner(self, color: Color) -> bool:
+        """Check if the player won the game."""
+        return 15 <= self.get_checkers(color, Board.BEARING_OFF_POS)
+
+    def prompt_move(self, color: Color, dice: DICE, player: Player) -> Union[
+            Move, Error]:
+        """Try to ask the player to make a move."""
+        for _ in range(1, 100):
+            sys.stdout.write(
+                'Rolled {}, {}, enter move: '.format(dice[0], dice[1]))
+            sys.stdout.flush()
+            move = player.make_move(color, self, dice)
+            if self.is_valid_move(color, dice, move):
+                return move
+            sys.stdout.write('Illegal move. ')
+        return Error()
+
+    #def play_game(self, black: Player, white: Player) -> None:
+        #"""The main game loop."""
+        #for _ in range(1, 100000):
+
+
+
+    def _print_checkers(self, pos: int) -> None:
         """Print a point from Black's point of view."""
         black_checkers = self.get_checkers(Color.Black, pos)
         white_checkers = self.get_opposite_checkers(Color.Black, pos)
@@ -260,19 +328,19 @@ class Board:
             Color.Black, Board.BAR_POS)))
         sys.stdout.write('\n')
         for pos in range(13, 19):
-            self.print_checkers(pos)
+            self._print_checkers(pos)
         sys.stdout.write('    ')
         for pos in range(19, 25):
-            self.print_checkers(pos)
+            self._print_checkers(pos)
         sys.stdout.write('    ')
         sys.stdout.write('Black off: {}'.format(self.get_checkers(
             Color.Black, Board.BEARING_OFF_POS)))
         sys.stdout.write('\n')
         for pos in range(12, 6, -1):
-            self.print_checkers(pos)
+            self._print_checkers(pos)
         sys.stdout.write('    ')
         for pos in range(6, 0, -1):
-            self.print_checkers(pos)
+            self._print_checkers(pos)
         sys.stdout.write('    ')
         sys.stdout.write('White bar: {}'.format(self.get_checkers(
             Color.White, Board.BAR_POS)))
