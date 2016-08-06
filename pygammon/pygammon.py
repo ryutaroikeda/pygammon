@@ -17,7 +17,7 @@ class Color(Enum):
 
     def opposite(self) -> 'Color':
         """Get the opponent's color."""
-        if Color.Black == self.value:
+        if Color.Black == self:
             return Color.White
         else:
             return Color.Black
@@ -36,6 +36,10 @@ class Submove:
             dst = Board.BEARING_OFF_POS
         return dst
 
+    def print(self) -> None:
+        """Print the submove."""
+        sys.stdout.write('({}, {})'.format(self.source, self.destination()))
+
 class Move:
     """Represent a player's move."""
 
@@ -53,6 +57,14 @@ class Move:
     def pop(self) -> Submove:
         """Get the next submove of this move and remove it."""
         return self.submoves.pop()
+
+    def print(self) -> None:
+        """Print the move."""
+        sys.stdout.write('[')
+        for submove in reversed(self.submoves):
+            submove.print()
+            sys.stdout.write(', ')
+        sys.stdout.write(']\n')
 
 class Board:
     """Represent the game state."""
@@ -74,7 +86,7 @@ class Board:
             return self.white_board
 
     @staticmethod
-    def get_oppoisite_pos(pos: int) -> int:
+    def get_opposite_pos(pos: int) -> int:
         """Get the position from the point of view of the other player."""
         return Board.BEARING_OFF_POS - pos
 
@@ -86,20 +98,29 @@ class Board:
     def get_opposite_checkers(self, color: Color, pos: int) -> bool:
         """Get the number of checkers of opposite color."""
         board = self.get_board(color.opposite())
-        return board[self.get_oppoisite_pos(pos)]
+        return board[self.get_opposite_pos(pos)]
+
+    def set_checkers(self, color: Color, pos: int, checkers: int) -> None:
+        """Set the number of checkers."""
+        board = self.get_board(color)
+        board[pos] = checkers
+
+    def set_opposite_checkers(
+            self, color: Color, pos: int, checkers: int) -> None:
+        """Set the number of opposite colored checkers."""
+        board = self.get_board(color.opposite())
+        board[self.get_opposite_pos(pos)] = checkers
 
     def is_blocked(self, color: Color, pos: int) -> bool:
         """Check if the point is blocked by the opponent."""
         if Board.BEARING_OFF_POS == pos:
             return False
-        checkers = self.get_opposite_checkers(color, pos)
-        return 1 < checkers
+        return 1 < self.get_opposite_checkers(color, pos)
 
     def is_all_home(self, color: Color) -> bool:
         """Check if we can start bearing off."""
-        board = self.get_board(color)
         for pos in range(Board.BAR_POS, Board.HOME_POS):
-            if 0 < board[pos]:
+            if 0 < self.get_checkers(color, pos):
                 return False
         return True
 
@@ -116,7 +137,7 @@ class Board:
         if self.get_checkers(color, submove.source) < 1:
             return False
         # Make sure the destination is not blocked.
-        if self.is_blocked(color, submove.source):
+        if self.is_blocked(color, submove.destination()):
             return False
         # Make sure the bar is empty or we're getting out the bar.
         if (0 < self.get_checkers(color, Board.BAR_POS)) and \
@@ -147,7 +168,7 @@ class Board:
                 (1 == self.get_opposite_checkers(color, destination)):
             other_board = self.get_board(color.opposite())
             other_board[Board.BAR_POS] += 1
-            other_board[Board.get_oppoisite_pos(destination)] = 0
+            other_board[Board.get_opposite_pos(destination)] = 0
 
     def list_submoves(self, color: Color, die: int) -> List[Submove]:
         """List legal submoves given the die roll."""
@@ -216,14 +237,14 @@ class Board:
 
         return low_moves
 
-    def print_checker(self, pos: int) -> None:
-        """Print a point."""
+    def print_checkers(self, pos: int) -> None:
+        """Print a point from Black's point of view."""
         black_checkers = self.get_checkers(Color.Black, pos)
-        white_checkers = self.get_checkers(Color.White, pos)
+        white_checkers = self.get_opposite_checkers(Color.Black, pos)
         if 0 < black_checkers:
-            sys.stdout.write('B{:<2} '.format(black_checkers))
+            sys.stdout.write(' B{:<2}'.format(black_checkers))
         elif 0 < white_checkers:
-            sys.stdout.write('W{:<2} '.format(white_checkers))
+            sys.stdout.write(' W{:<2}'.format(white_checkers))
         else:
             sys.stdout.write(' __ ')
 
@@ -239,19 +260,19 @@ class Board:
             Color.Black, Board.BAR_POS)))
         sys.stdout.write('\n')
         for pos in range(13, 19):
-            self.print_checker(pos)
+            self.print_checkers(pos)
         sys.stdout.write('    ')
         for pos in range(19, 25):
-            self.print_checker(pos)
+            self.print_checkers(pos)
         sys.stdout.write('    ')
         sys.stdout.write('Black off: {}'.format(self.get_checkers(
             Color.Black, Board.BEARING_OFF_POS)))
         sys.stdout.write('\n')
         for pos in range(12, 6, -1):
-            self.print_checker(pos)
+            self.print_checkers(pos)
         sys.stdout.write('    ')
         for pos in range(6, 0, -1):
-            self.print_checker(pos)
+            self.print_checkers(pos)
         sys.stdout.write('    ')
         sys.stdout.write('White bar: {}'.format(self.get_checkers(
             Color.White, Board.BAR_POS)))

@@ -1,22 +1,29 @@
-analyze: type lint test
+PYGAMMON_SRC := $(wildcard pygammon/*.py)
+TESTS_SRC := $(wildcard tests/*.py)
 
-type:
-	env MYPYPATH=stubs mypy pygammon --strict-optional --disallow-untyped-calls \
-		--disallow-untyped-defs --check-untyped-defs --warn-redundant-casts
-	env MYPYPATH=stubs mypy tests --strict-optional --disallow-untyped-calls \
+all: .analyze_pygammon .analyze_tests test
+
+.analyze_pygammon: $(PYGAMMON_SRC)
+	env MYPYPATH=stubs mypy pygammon --strict-optional \
+		--disallow-untyped-calls --disallow-untyped-defs \
 		--check-untyped-defs --warn-redundant-casts
-
-lint:
 	pylint pygammon
+	touch "$@"
+
+.analyze_tests: $(TESTS_SRC)
+	env MYPYPATH=stubs mypy tests --strict-optional \
+		--disallow-untyped-calls --check-untyped-defs \
+		--warn-redundant-casts
 	pylint tests
+	touch "$@"
 
 test:
 	python -m unittest discover -s tests
 
-tags:
+tags: $(PYGAMMON_SRC)
 	ctags -R pygammon
 
 install:
 	pip install -r requirements.txt
 
-.PHONY: type lint test tags install
+.PHONY: test install
