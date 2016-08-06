@@ -6,6 +6,7 @@ import copy
 from enum import Enum
 from typing import List
 from typing import Union
+import random
 import sys
 
 import numpy as np
@@ -21,12 +22,16 @@ class Color(Enum):
     Black = 0
     White = 1
 
+    def __str__(self) -> str:
+        if Color.Black == self:
+            return 'Black'
+        return 'White'
+
     def opposite(self) -> 'Color':
         """Get the opponent's color."""
         if Color.Black == self:
             return Color.White
-        else:
-            return Color.Black
+        return Color.Black
 
 class Submove:
     """Represent each movement in a move."""
@@ -43,16 +48,15 @@ class Submove:
     def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
+    def __str__(self) -> str:
+        return '{}/{}'.format(self.source, self.destination())
+
     def destination(self) -> int:
         """This is where the checker moves to."""
         dst = self.source + self.die
         if Board.BEARING_OFF_POS < dst:
             dst = Board.BEARING_OFF_POS
         return dst
-
-    def print(self) -> None:
-        """Print the submove."""
-        sys.stdout.write('({}, {})'.format(self.source, self.destination()))
 
 class Move:
     """Represent a player's move."""
@@ -73,6 +77,13 @@ class Move:
     def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
+    def __str__(self) -> str:
+        result = '['
+        for submove in reversed(self.submoves):
+            result += ' {} '.format(submove)
+        result += ']'
+        return result
+
     def size(self) -> int:
         """Return the number of submoves in the move."""
         return len(self.submoves)
@@ -85,16 +96,9 @@ class Move:
         """Get the next submove of this move and remove it."""
         return self.submoves.pop()
 
-    def print(self) -> None:
-        """Print the move."""
-        sys.stdout.write('[')
-        for submove in reversed(self.submoves):
-            submove.print()
-            sys.stdout.write(', ')
-        sys.stdout.write(']\n')
-
 class Player(metaclass=ABCMeta):
     """Represent the player."""
+
     @abstractmethod
     def make_move(self, color: 'Color', board: 'Board', dice: DICE) -> Move:
         """Make a move."""
@@ -110,6 +114,16 @@ class Board:
     def __init__(self) -> None:
         self.black_board = np.zeros(Board.BOARD_SIZE, dtype=int)
         self.white_board = np.zeros(Board.BOARD_SIZE, dtype=int)
+
+    def setup(self) -> None:
+        """Creates the starting board."""
+        starting_checkers = [
+            0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5,
+            0, 0, 0, 0, 3, 0, 5, 0, 0, 0, 0, 0, 0]
+        boards = [self.black_board, self.white_board]
+        for board_index in range(0, len(boards)):
+            for pos in range(0, len(starting_checkers)):
+                boards[board_index][pos] = starting_checkers[pos]
 
     def get_board(self, color: Color) -> np.ndarray:
         """Get a board reference."""
@@ -286,24 +300,50 @@ class Board:
         """Check if the player won the game."""
         return 15 <= self.get_checkers(color, Board.BEARING_OFF_POS)
 
-    def prompt_move(self, color: Color, dice: DICE, player: Player) -> Union[
+    def _prompt_move(self, color: Color, dice: DICE, player: Player) -> Union[
             Move, Error]:
         """Try to ask the player to make a move."""
         for _ in range(1, 100):
             sys.stdout.write(
-                'Rolled {}, {}, enter move: '.format(dice[0], dice[1]))
+                'Rolled {}-{}, enter {} move: '.format(
+                    dice[0], dice[1], color))
             sys.stdout.flush()
             move = player.make_move(color, self, dice)
             if self.is_valid_move(color, dice, move):
+                sys.stdout.write('\n')
                 return move
             sys.stdout.write('Illegal move. ')
         return Error()
 
-    #def play_game(self, black: Player, white: Player) -> None:
-        #"""The main game loop."""
-        #for _ in range(1, 100000):
+    @staticmethod
+    def _roll_dice() -> DICE:
+        return [random.randint(1, 6), random.randint(1, 6)]
 
-
+    def play_game(self, black: Player, white: Player) -> None:
+        """The main game loop."""
+        players = [black, white]
+        colors = [Color.Black, Color.White]
+        for _ in range(1, 1000):
+            for player_index in range(0, 2):
+                color = colors[player_index]
+                player = players[player_index]
+                self.print()
+                dice = Board._roll_dice()
+                legal_moves = self.list_moves(color, dice)
+                if 0 == len(legal_moves):
+                    sys.stdout.write('No legal moves\n')
+                    continue
+                move = self._prompt_move(color, dice, player)
+                if isinstance(move, Move):
+                    self.do_move(color, move)
+                else:
+                    sys.stdout.write('Failed to get move\n')
+                    return
+                if self.is_winner(color):
+                    sys.stdout.write('{} wins!\n'.format(color))
+                    return
+        # Stalemates are impossible in backgammon
+        sys.stdout.write('Something went wrong\n')
 
     def _print_checkers(self, pos: int) -> None:
         """Print a point from Black's point of view."""

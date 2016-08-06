@@ -1,8 +1,12 @@
-from pygammon.pygammon import Color
 from pygammon.pygammon import Board
+from pygammon.commandlineplayer import CommandLinePlayer
+from pygammon.randomplayer import RandomPlayer
 
-color = Color.Black
 
 board = Board()
+board.setup()
 
-board.print()
+random_player = RandomPlayer()
+cmd_player = CommandLinePlayer()
+
+board.play_game(random_player, cmd_player)
