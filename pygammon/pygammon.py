@@ -5,7 +5,6 @@ from abc import abstractmethod
 import copy
 from enum import Enum
 from typing import List
-from typing import Union
 import random
 import sys
 
@@ -33,6 +32,9 @@ class Color(Enum):
             return Color.White
         return Color.Black
 
+class Command:
+    """Represents commands from players."""
+
 class Submove:
     """Represent each movement in a move."""
 
@@ -58,7 +60,7 @@ class Submove:
             dst = Board.BEARING_OFF_POS
         return dst
 
-class Move:
+class Move(Command):
     """Represent a player's move.
     The submoves are in reverse order.
     """
@@ -98,8 +100,24 @@ class Move:
         """Get the next submove of this move and remove it."""
         return self.submoves.pop()
 
+class RollCommand(Command):
+    """Represent request to roll dice."""
+
+class DoubleCommand(Command):
+    """Represent request to double the stakes."""
+
+class AcceptCommand(Command):
+    """Represent request to accept double."""
+
+class ResignCommand(Command):
+    """Represent request decline a double and resign the round."""
+
 class Player(metaclass=ABCMeta):
     """Represent the player."""
+
+    @abstractmethod
+    def make_command(self, color: 'Color', game: 'Game') -> Command:
+        """Make a command."""
 
     @abstractmethod
     def make_move(self, color: 'Color', board: 'Board', dice: DICE) -> Move:
@@ -302,47 +320,6 @@ class Board:
         """Check if the player won the game."""
         return 15 <= self.get_checkers(color, Board.BEARING_OFF_POS)
 
-    def _prompt_move(self, color: Color, dice: DICE, player: Player) -> Union[
-            Move, Error]:
-        """Try to ask the player to make a move."""
-        for _ in range(1, 100):
-            move = player.make_move(color, self, dice)
-            if self.is_valid_move(color, dice, move):
-                return move
-            sys.stdout.write('Illegal move.\n')
-        return Error()
-
-    @staticmethod
-    def _roll_dice() -> DICE:
-        return [random.randint(1, 6), random.randint(1, 6)]
-
-    def play_game(self, black: Player, white: Player) -> None:
-        """The main game loop."""
-        players = [black, white]
-        colors = [Color.Black, Color.White]
-        for _ in range(1, 1000):
-            for player_index in range(0, 2):
-                color = colors[player_index]
-                player = players[player_index]
-                self.print()
-                dice = Board._roll_dice()
-                sys.stdout.write('Rolled {}-{}\n'.format(dice[0], dice[1]))
-                legal_moves = self.list_moves(color, dice)
-                if 0 == len(legal_moves):
-                    sys.stdout.write('No legal moves.\n')
-                    continue
-                move = self._prompt_move(color, dice, player)
-                if isinstance(move, Move):
-                    self.do_move(color, move)
-                else:
-                    sys.stdout.write('Failed to get move.\n')
-                    return
-                if self.is_winner(color):
-                    sys.stdout.write('{} wins!\n'.format(color))
-                    return
-        # Stalemates are impossible in backgammon
-        sys.stdout.write('Something went wrong.\n')
-
     def _print_checkers(self, pos: int) -> None:
         """Print a point from Black's point of view."""
         black_checkers = self.get_checkers(Color.Black, pos)
@@ -392,3 +369,72 @@ class Board:
         sys.stdout.write('White off: {}'.format(self.get_checkers(
             Color.White, Board.BEARING_OFF_POS)))
         sys.stdout.write('\n')
+
+class Game:
+    """Represent a game of Backgammon."""
+
+    def __init__(self, board: Board) -> None:
+        self.stakes = 1
+        self.black_score = 0
+        self.white_score = 0
+        self.board = board
+
+    @staticmethod
+    def _roll_dice() -> DICE:
+        return [random.randint(1, 6), random.randint(1, 6)]
+
+    def _calculate_score_for_winner(self) -> int:
+        """Get the score earned by the winner this round."""
+        return self.stakes
+
+    def update_score(self, winner: Color) -> None:
+        """Update the winner's score."""
+        score = self._calculate_score_for_winner()
+        if Color.White == winner:
+            self.white_score += score
+        else:
+            self.black_score += score
+
+    def play_round(self, black: Player, white: Player) -> None:
+        """The main game loop."""
+        players = [black, white]
+        colors = [Color.Black, Color.White]
+
+        for _ in range(1, 1000):
+            for player_index in range(0, 2):
+                color = colors[player_index]
+                player = players[player_index]
+                self.board.print()
+                command = player.make_command(color, self)
+
+                if isinstance(command, RollCommand):
+                    dice = Game._roll_dice()
+                    sys.stdout.write('Rolled {}-{}\n'.format(dice[0], dice[1]))
+                    legal_moves = self.board.list_moves(color, dice)
+                    if 0 == len(legal_moves):
+                        sys.stdout.write('No legal moves.\n')
+                        continue
+                    move = player.make_move(color, self.board, dice)
+                    if self.board.is_valid_move(color, dice, move):
+                        self.board.do_move(color, move)
+                    else:
+                        sys.stdout.write(
+                            'Illegal move. {} forfeits round.\n'.format(
+                                color))
+                        self.update_score(color.opposite())
+                        return
+
+                if self.board.is_winner(color):
+                    sys.stdout.write('{} wins!\n'.format(color))
+                    self.update_score(color)
+                    return
+
+        # Stalemates are impossible in backgammon
+        sys.stdout.write('Something went wrong.\n')
+
+    def print(self) -> None:
+        """Print the game."""
+        sys.stdout.write('Black: {} === White: {}\n'.format(
+            self.black_score, self.white_score))
+        sys.stdout.write('Stakes: {}\n'.format(self.stakes))
+        self.board.print()

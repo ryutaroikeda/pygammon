@@ -7,6 +7,9 @@ all: .analyze_pygammon.make .analyze_tests.make test
 	env MYPYPATH=stubs mypy pygammon --strict-optional \
 		--disallow-untyped-calls --disallow-untyped-defs \
 		--check-untyped-defs --warn-redundant-casts
+	env MYPYPATH=stubs mypy bin/main.py --strict-optional \
+		--disallow-untyped-calls --disallow-untyped-defs \
+		--check-untyped-defs --warn-redundant-casts
 	pylint pygammon
 	touch "$@"
 

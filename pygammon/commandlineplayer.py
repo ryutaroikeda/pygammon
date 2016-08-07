@@ -4,9 +4,12 @@ from typing import Union
 
 from pygammon.pygammon import Board
 from pygammon.pygammon import Color
+from pygammon.pygammon import Command
 from pygammon.pygammon import DICE
+from pygammon.pygammon import Game
 from pygammon.pygammon import Move
 from pygammon.pygammon import Player
+from pygammon.pygammon import RollCommand
 from pygammon.pygammon import Submove
 
 class Error:
@@ -21,6 +24,21 @@ class Error:
 
 class CommandLinePlayer(Player):
     """Command line interface."""
+
+    def make_command(self, color: Color, game: Game) -> Command:
+        """Parse a command from the console."""
+        while True:
+            sys.stdout.write('Enter command: ')
+            feed = input()
+            command = self.parse_command(feed, color, game.board, [0, 0])
+            if isinstance(command, Move):
+                sys.stdout.write('Error: Enter \'roll\' for dice.\n')
+                continue
+            if isinstance(command, Error):
+                sys.stdout.write('Error: {}\n'.format(command.get_message()))
+                continue
+            return command
+
     def make_move(self, color: Color, board: Board, dice: DICE) -> Move:
         """Parse a move from the console."""
         if dice[0] == dice[1]:
@@ -33,6 +51,9 @@ class CommandLinePlayer(Player):
             move = self.parse_command(feed, color, board, dice)
             if isinstance(move, Error):
                 sys.stdout.write('{}\n'.format(move.get_message()))
+                continue
+            if not isinstance(move, Move):
+                sys.stdout.write('Error: Expected a move.\n')
                 continue
             return move
 
@@ -146,9 +167,10 @@ class CommandLinePlayer(Player):
 
     def parse_command(
             self, feed: str, color: Color, board: Board, dice: DICE) \
-                -> Union[Move, Error]:
+                -> Union[Command, Error]:
         """Parse a command."""
         feed = feed.strip()
+
         if 'help' == feed:
             return Error('help -- show this message\n' + \
                 'list -- list all moves\n' + \
@@ -168,5 +190,8 @@ class CommandLinePlayer(Player):
             board.print()
             sys.stdout.write('Rolled {}-{} '.format(dice[0], dice[1]))
             return Error('')
+
+        if '' == feed or 'roll' == feed:
+            return RollCommand()
 
         return self._parse_move(feed, color, dice)
