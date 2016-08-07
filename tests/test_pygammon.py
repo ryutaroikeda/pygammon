@@ -70,25 +70,31 @@ class TestBoard(unittest.TestCase):
     def test_is_valid_submove(self):
         """Make sure legal moves are legal."""
         board = Board()
-        black_board = board.get_board(Color.Black)
-        black_board[1] = 1
+        board.set_checkers(Color.Black, 1, 1)
+
         submove = Submove(1, 1)
         self.assertEqual(submove.destination(), 2)
         self.assertTrue(board.is_valid_submove(Color.Black, submove))
 
+    def test_is_valid_submove_blocked(self):
+        """Make sure blocked move is illegal."""
+        board = Board()
+        board.set_checkers(Color.Black, 1, 1)
+        board.set_opposite_checkers(Color.Black, 2, 2)
+        submove = Submove(1, 1)
+        self.assertFalse(board.is_valid_submove(Color.Black, submove))
+
     def test_list_moves(self):
         """Make sure we return moves in both orders."""
         board = Board()
-        black_board = board.get_board(Color.Black)
-        black_board[1] = 1
+        board.set_checkers(Color.Black, 1, 1)
         moves = board.list_moves(Color.Black, [1, 2])
         self.assertEqual(len(moves), 2)
 
     def test_list_moves_with_double(self):
         """Make sure we return moves for a double."""
         board = Board()
-        black_board = board.get_board(Color.Black)
-        black_board[1] = 1
+        board.set_checkers(Color.Black, 1, 1)
         moves = board.list_moves(Color.Black, [1, 1])
         self.assertEqual(len(moves), 1)
         move = moves[0]
@@ -139,3 +145,36 @@ class TestBoard(unittest.TestCase):
         self.assertEqual(first.die, 1)
         second = move.pop()
         self.assertEqual(second.die, 2)
+
+    def test_valid_move__bug_1(self):
+        """Make sure legal move is listed."""
+        board = Board()
+        board.set_checkers(Color.Black, 19, 2)
+        board.set_checkers(Color.Black, 17, 2)
+        board.set_checkers(Color.Black, 12, 2)
+        board.set_opposite_checkers(Color.Black, 22, 1)
+        board.set_opposite_checkers(Color.Black, 18, 1)
+
+        dice = [2, 5]
+        move = Move([Submove(9, 5), Submove(7, 2)])
+        self.assertTrue(board.is_valid_move(Color.White, dice, move))
+
+    def test_valid_move_bug_2(self):
+        """Make sure we can't bear off until everyone is home."""
+        board = Board()
+        board.set_checkers(Color.Black, 24, 1)
+        board.set_checkers(Color.Black, 23, 1)
+        board.set_checkers(Color.Black, 18, 1)
+
+        dice = [1, 2]
+        move = Move([Submove(24, 1), Submove(23, 2)])
+        self.assertFalse(board.is_valid_move(Color.Black, dice, move))
+
+    def test_valid_move_bug_3(self):
+        """Make sure we can bear off last checker."""
+        board = Board()
+        board.set_checkers(Color.Black, 24, 1)
+
+        dice = [2, 1]
+        move = Move([Submove(24, 2)])
+        self.assertTrue(board.is_valid_move(Color.Black, dice, move))

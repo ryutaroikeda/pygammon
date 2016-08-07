@@ -59,7 +59,9 @@ class Submove:
         return dst
 
 class Move:
-    """Represent a player's move."""
+    """Represent a player's move.
+    The submoves are in reverse order.
+    """
 
     def __init__(self, submoves: List[Submove]) -> None:
         self.submoves = submoves
@@ -108,7 +110,7 @@ class Board:
 
     BOARD_SIZE = 26
     BAR_POS = 0
-    HOME_POS = 18
+    HOME_POS = 19
     BEARING_OFF_POS = 25
 
     def __init__(self) -> None:
@@ -304,15 +306,10 @@ class Board:
             Move, Error]:
         """Try to ask the player to make a move."""
         for _ in range(1, 100):
-            sys.stdout.write(
-                'Rolled {}-{}, enter {} move: '.format(
-                    dice[0], dice[1], color))
-            sys.stdout.flush()
             move = player.make_move(color, self, dice)
             if self.is_valid_move(color, dice, move):
-                sys.stdout.write('\n')
                 return move
-            sys.stdout.write('Illegal move. ')
+            sys.stdout.write('Illegal move.\n')
         return Error()
 
     @staticmethod
@@ -329,21 +326,22 @@ class Board:
                 player = players[player_index]
                 self.print()
                 dice = Board._roll_dice()
+                sys.stdout.write('Rolled {}-{}\n'.format(dice[0], dice[1]))
                 legal_moves = self.list_moves(color, dice)
                 if 0 == len(legal_moves):
-                    sys.stdout.write('No legal moves\n')
+                    sys.stdout.write('No legal moves.\n')
                     continue
                 move = self._prompt_move(color, dice, player)
                 if isinstance(move, Move):
                     self.do_move(color, move)
                 else:
-                    sys.stdout.write('Failed to get move\n')
+                    sys.stdout.write('Failed to get move.\n')
                     return
                 if self.is_winner(color):
                     sys.stdout.write('{} wins!\n'.format(color))
                     return
         # Stalemates are impossible in backgammon
-        sys.stdout.write('Something went wrong\n')
+        sys.stdout.write('Something went wrong.\n')
 
     def _print_checkers(self, pos: int) -> None:
         """Print a point from Black's point of view."""

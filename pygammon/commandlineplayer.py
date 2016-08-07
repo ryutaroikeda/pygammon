@@ -28,10 +28,9 @@ class CommandLinePlayer(Player):
             dice.append(dice[0])
 
         while True:
-            sys.stdout.write('Rolled {}-{}, enter {} move: '.format(
-                dice[0], dice[1], color))
+            sys.stdout.write('Enter {} move: '.format(color))
             feed = input()
-            move = self._parse_command(feed, color, board, dice)
+            move = self.parse_command(feed, color, board, dice)
             if isinstance(move, Error):
                 sys.stdout.write('{}\n'.format(move.get_message()))
                 continue
@@ -52,23 +51,23 @@ class CommandLinePlayer(Player):
         if parts[0].isdigit():
             source = int(parts[0])
         elif 'bar' == parts[0].lower():
-            source = 0
+            source = Board.BEARING_OFF_POS if Color.White == color else 0
         else:
-            return Error('Invalid submove source {}'.format(parts[0]))
+            return Error('Invalid submove source {}.'.format(parts[0]))
 
         if parts[1].isdigit():
             destination = int(parts[1])
         elif 'off' == parts[1].lower():
-            destination = Board.BEARING_OFF_POS
+            destination = 0 if Color.White == color else Board.BEARING_OFF_POS
         else:
-            return Error('Invalid submove destination {}'.format(parts[1]))
+            return Error('Invalid submove destination {}.'.format(parts[1]))
 
         if source < 0 or Board.BEARING_OFF_POS < source:
-            return Error('Submove source out of range {}'.format(parts[0]))
+            return Error('Submove source out of range {}.'.format(parts[0]))
 
         if destination < 0 or Board.BEARING_OFF_POS < destination:
             return Error(
-                'Submove destination out of range {}'.format(parts[1]))
+                'Submove destination out of range {}.'.format(parts[1]))
 
         if Color.White == color:
             source = Board.get_opposite_pos(source)
@@ -82,7 +81,7 @@ class CommandLinePlayer(Player):
         """Parse a move.
         A move is a list of submoves separated by whitespace.
         """
-        submove_feeds = feed.split()
+        submove_feeds = reversed(feed.split())
         submoves = [] # type: List[Submove]
         for submove_feed in submove_feeds:
             submove = self._parse_submove(submove_feed, color)
@@ -90,16 +89,24 @@ class CommandLinePlayer(Player):
                 return submove
             submoves.append(submove)
 
-        # Make sure dice are correct when bearing off.
+        if len(dice) < len(submoves):
+            return Error('Too many submoves')
+
+        # Make sure the dice on submoves are correct when bearing off.
+
         sorted_dice = list(dice)
         sorted_dice.sort()
+        # If there are more dice than submoves, take the highest.
+        sorted_dice = sorted_dice[len(dice) - len(submoves):]
+
         for submove in submoves:
             # If we're not bearing off, the die is correct.
             if Board.BEARING_OFF_POS != submove.destination():
                 if submove.die in sorted_dice:
                     sorted_dice.remove(submove.die)
                     continue
-                return Error('There\'s no die for submove {}'.format(submove))
+                return Error('There\'s no die for submove {}.'.format(
+                    CommandLinePlayer._format_submove(submove, color)))
 
             # If we're bearing off, pick the smallest legal die.
             did_find_die = False
@@ -114,7 +121,8 @@ class CommandLinePlayer(Player):
             if did_find_die:
                 continue
 
-            return Error('There\'s no die for submove {}'.format(submove))
+            return Error('There\'s no die for submove {}.'.format(
+                CommandLinePlayer._format_submove(submove, color)))
 
         return Move(submoves)
 
@@ -130,13 +138,13 @@ class CommandLinePlayer(Player):
     @staticmethod
     def _format_move(move: Move, color: Color) -> str:
         result = '['
-        for submove in move.submoves:
+        for submove in reversed(move.submoves):
             result += ' {} '.format(CommandLinePlayer._format_submove(
                 submove, color))
         result += ']'
         return result
 
-    def _parse_command(
+    def parse_command(
             self, feed: str, color: Color, board: Board, dice: DICE) \
                 -> Union[Move, Error]:
         """Parse a command."""
@@ -158,6 +166,7 @@ class CommandLinePlayer(Player):
 
         if 'show' == feed:
             board.print()
+            sys.stdout.write('Rolled {}-{} '.format(dice[0], dice[1]))
             return Error('')
 
         return self._parse_move(feed, color, dice)
