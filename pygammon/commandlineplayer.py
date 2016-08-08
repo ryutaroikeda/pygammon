@@ -2,13 +2,16 @@
 import sys
 from typing import Union
 
+from pygammon.pygammon import AcceptCommand
 from pygammon.pygammon import Board
 from pygammon.pygammon import Color
 from pygammon.pygammon import Command
+from pygammon.pygammon import DoubleCommand
 from pygammon.pygammon import DICE
 from pygammon.pygammon import Game
 from pygammon.pygammon import Move
 from pygammon.pygammon import Player
+from pygammon.pygammon import ResignCommand
 from pygammon.pygammon import RollCommand
 from pygammon.pygammon import Submove
 
@@ -56,6 +59,19 @@ class CommandLinePlayer(Player):
                 sys.stdout.write('Error: Expected a move.\n')
                 continue
             return move
+
+    def accept_or_resign(self, color: Color, game: Game) -> Command:
+        """Accept or decline the doubling cube."""
+        while True:
+            sys.stdout.write(
+                '{} wants to double the stakes to {}. Accept or resign'.format(
+                    color, game.stakes * 2))
+            feed = input()
+            command = self.parse_command(feed, color, game.board, [0, 0])
+
+            if isinstance(command, AcceptCommand) or \
+                isinstance(command, ResignCommand):
+                return command
 
     @staticmethod
     def _parse_submove(feed: str, color: Color) -> Union[Submove, Error]:
@@ -193,5 +209,14 @@ class CommandLinePlayer(Player):
 
         if '' == feed or 'roll' == feed:
             return RollCommand()
+
+        if 'double' == feed:
+            return DoubleCommand()
+
+        if 'accept' == feed:
+            return AcceptCommand()
+
+        if 'resign' == feed:
+            return ResignCommand()
 
         return self._parse_move(feed, color, dice)

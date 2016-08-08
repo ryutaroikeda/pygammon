@@ -8,6 +8,7 @@ from pygammon.pygammon import DICE
 from pygammon.pygammon import Game
 from pygammon.pygammon import Move
 from pygammon.pygammon import Player
+from pygammon.pygammon import ResignCommand
 from pygammon.pygammon import RollCommand
 
 class RandomPlayer(Player):
@@ -22,3 +23,7 @@ class RandomPlayer(Player):
         moves = board.list_moves(color, dice)
         move_index = random.randint(0, len(moves) - 1)
         return moves[move_index]
+
+    def accept_or_resign(self, _color: Color, _game: Game) -> Command:
+        """Resign."""
+        return ResignCommand()

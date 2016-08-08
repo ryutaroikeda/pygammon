@@ -123,6 +123,10 @@ class Player(metaclass=ABCMeta):
     def make_move(self, color: 'Color', board: 'Board', dice: DICE) -> Move:
         """Make a move."""
 
+    @abstractmethod
+    def accept_or_resign(self, color: Color, game: 'Game') -> Command:
+        """Accept or decline a doubling of stakes."""
+
 class Board:
     """Represent the game state."""
 
@@ -370,11 +374,18 @@ class Board:
             Color.White, Board.BEARING_OFF_POS)))
         sys.stdout.write('\n')
 
+class Cube(Enum):
+    """Represents the doubling cube."""
+    Centered = 0
+    Black = 1
+    White = 2
+
 class Game:
     """Represent a game of Backgammon."""
 
     def __init__(self, board: Board) -> None:
         self.stakes = 1
+        self.cube = Cube.Centered
         self.black_score = 0
         self.white_score = 0
         self.board = board
@@ -407,22 +418,53 @@ class Game:
                 self.board.print()
                 command = player.make_command(color, self)
 
-                if isinstance(command, RollCommand):
-                    dice = Game._roll_dice()
-                    sys.stdout.write('Rolled {}-{}\n'.format(dice[0], dice[1]))
-                    legal_moves = self.board.list_moves(color, dice)
-                    if 0 == len(legal_moves):
-                        sys.stdout.write('No legal moves.\n')
-                        continue
-                    move = player.make_move(color, self.board, dice)
-                    if self.board.is_valid_move(color, dice, move):
-                        self.board.do_move(color, move)
-                    else:
-                        sys.stdout.write(
-                            'Illegal move. {} forfeits round.\n'.format(
-                                color))
-                        self.update_score(color.opposite())
-                        return
+                if isinstance(command, DoubleCommand):
+                    if (Cube.Centered == self.cube) or \
+                            (Cube.Black == self.cube) or \
+                            (Cube.White == self.cube):
+                        other_player = players[(player_index + 1) % 2]
+                        response = other_player.accept_or_resign(
+                            color.opposite(), self)
+                        if isinstance(response, AcceptCommand):
+                            self.stakes *= 2
+                            if Color.Black == color:
+                                self.cube = Cube.White
+                            else:
+                                self.cube = Cube.Black
+                        elif isinstance(response, ResignCommand):
+                            sys.stdout.write('{} resigns.\n'.format(
+                                color.opposite()))
+                            self.update_score(color)
+                            return
+                        else:
+                            sys.stdout.write('Illegal respoonse. ' + \
+                                '{} forfeits round.\n'.format(
+                                    color.opposite()))
+                            self.update_score(color)
+                            return
+                elif not isinstance(command, RollCommand):
+                    sys.stdout.write(
+                        'Illegal command. {} forfeits round.\n'.format(
+                            color))
+                    self.update_score(color.opposite)
+                    return
+
+                # Roll dice.
+                dice = Game._roll_dice()
+                sys.stdout.write('Rolled {}-{}\n'.format(dice[0], dice[1]))
+                legal_moves = self.board.list_moves(color, dice)
+                if 0 == len(legal_moves):
+                    sys.stdout.write('No legal moves.\n')
+                    continue
+                move = player.make_move(color, self.board, dice)
+                if self.board.is_valid_move(color, dice, move):
+                    self.board.do_move(color, move)
+                else:
+                    sys.stdout.write(
+                        'Illegal move. {} forfeits round.\n'.format(
+                            color))
+                    self.update_score(color.opposite())
+                    return
 
                 if self.board.is_winner(color):
                     sys.stdout.write('{} wins!\n'.format(color))
