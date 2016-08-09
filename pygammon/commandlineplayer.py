@@ -63,15 +63,26 @@ class CommandLinePlayer(Player):
     def accept_or_resign(self, color: Color, game: Game) -> Command:
         """Accept or decline the doubling cube."""
         while True:
-            sys.stdout.write(
-                '{} wants to double the stakes to {}. Accept or resign'.format(
-                    color, game.stakes * 2))
+            sys.stdout.write(('{} wants to double the stakes to {}. ' + \
+                    'Accept or resign? ').format(color, game.stakes * 2))
             feed = input()
             command = self.parse_command(feed, color, game.board, [0, 0])
 
             if isinstance(command, AcceptCommand) or \
                 isinstance(command, ResignCommand):
                 return command
+
+    def roll_or_double(self, color: Color, game: Game) -> Command:
+        """Roll dice or offer the doubling cube."""
+        while True:
+            sys.stdout.write('Roll or double? ')
+            feed = input()
+            command = self.parse_command(feed, color, game.board, [0, 0])
+
+            if isinstance(command, RollCommand) or \
+                    isinstance(command, DoubleCommand):
+                return command
+            sys.stdout.write('Invalid command.\n')
 
     @staticmethod
     def _parse_submove(feed: str, color: Color) -> Union[Submove, Error]:
@@ -210,13 +221,13 @@ class CommandLinePlayer(Player):
         if '' == feed or 'roll' == feed:
             return RollCommand()
 
-        if 'double' == feed:
+        if 'd' == feed or 'double' == feed:
             return DoubleCommand()
 
-        if 'accept' == feed:
+        if 'a' == feed or 'accept' == feed:
             return AcceptCommand()
 
-        if 'resign' == feed:
+        if 'r' == feed or 'resign' == feed:
             return ResignCommand()
 
         return self._parse_move(feed, color, dice)

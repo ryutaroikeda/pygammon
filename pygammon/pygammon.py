@@ -116,7 +116,7 @@ class Player(metaclass=ABCMeta):
     """Represent the player."""
 
     @abstractmethod
-    def make_command(self, color: 'Color', game: 'Game') -> Command:
+    def roll_or_double(self, color: 'Color', game: 'Game') -> Command:
         """Make a command."""
 
     @abstractmethod
@@ -416,16 +416,17 @@ class Game:
                 color = colors[player_index]
                 player = players[player_index]
                 self.board.print()
-                command = player.make_command(color, self)
+                command = player.roll_or_double(color, self)
 
                 if isinstance(command, DoubleCommand):
                     if (Cube.Centered == self.cube) or \
                             (Cube.Black == self.cube) or \
                             (Cube.White == self.cube):
                         other_player = players[(player_index + 1) % 2]
-                        response = other_player.accept_or_resign(
-                            color.opposite(), self)
+                        response = other_player.accept_or_resign(color, self)
+
                         if isinstance(response, AcceptCommand):
+                            sys.stdout.write('Doubling cube accepted.\n')
                             self.stakes *= 2
                             if Color.Black == color:
                                 self.cube = Cube.White
@@ -446,7 +447,7 @@ class Game:
                     sys.stdout.write(
                         'Illegal command. {} forfeits round.\n'.format(
                             color))
-                    self.update_score(color.opposite)
+                    self.update_score(color.opposite())
                     return
 
                 # Roll dice.

@@ -14,7 +14,7 @@ from pygammon.pygammon import RollCommand
 class RandomPlayer(Player):
     """Random backgammon player."""
 
-    def make_command(self, _color: Color, _game: Game) -> Command:
+    def roll_or_double(self, _color: Color, _game: Game) -> Command:
         """Parse a command from the console."""
         return RollCommand()
 

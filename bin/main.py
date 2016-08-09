@@ -8,6 +8,7 @@ board.setup()
 
 random_player = RandomPlayer()
 cmd_player = CommandLinePlayer()
+cmd_player_2 = CommandLinePlayer()
 
 game = Game(board)
-game.play_round(random_player, cmd_player)
+game.play_round(cmd_player_2, cmd_player)
