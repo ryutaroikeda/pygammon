@@ -33,32 +33,35 @@ class CommandLinePlayer(Player):
         while True:
             sys.stdout.write('Enter command: ')
             feed = input()
-            command = self.parse_command(feed, color, game.board, [0, 0])
+            command = self.parse_command(feed, color, game, [0, 0])
             if isinstance(command, Move):
                 sys.stdout.write('Error: Enter \'roll\' for dice.\n')
                 continue
             if isinstance(command, Error):
-                sys.stdout.write('Error: {}\n'.format(command.get_message()))
+                sys.stdout.write('{}\n'.format(command.get_message()))
                 continue
             return command
 
-    def make_move(self, color: Color, board: Board, dice: DICE) -> Move:
+    def make_move(self, color: Color, game: Game, dice: DICE) -> Move:
         """Parse a move from the console."""
         if dice[0] == dice[1]:
             dice.append(dice[0])
             dice.append(dice[0])
 
         while True:
+            sys.stdout.write('Rolled {}-{} '.format(dice[0], dice[1]))
             sys.stdout.write('Enter {} move: '.format(color))
             feed = input()
-            move = self.parse_command(feed, color, board, dice)
+            move = self.parse_command(feed, color, game, dice)
             if isinstance(move, Error):
                 sys.stdout.write('{}\n'.format(move.get_message()))
                 continue
             if not isinstance(move, Move):
                 sys.stdout.write('Error: Expected a move.\n')
                 continue
-            return move
+            if game.board.is_valid_move(color, dice, move):
+                return move
+            sys.stdout.write('Invalid move.\n')
 
     def accept_or_resign(self, color: Color, game: Game) -> Command:
         """Accept or decline the doubling cube."""
@@ -66,7 +69,7 @@ class CommandLinePlayer(Player):
             sys.stdout.write(('{} wants to double the stakes to {}. ' + \
                     'Accept or resign? ').format(color, game.stakes * 2))
             feed = input()
-            command = self.parse_command(feed, color, game.board, [0, 0])
+            command = self.parse_command(feed, color, game, [0, 0])
 
             if isinstance(command, AcceptCommand) or \
                 isinstance(command, ResignCommand):
@@ -77,11 +80,14 @@ class CommandLinePlayer(Player):
         while True:
             sys.stdout.write('Roll or double? ')
             feed = input()
-            command = self.parse_command(feed, color, game.board, [0, 0])
+            command = self.parse_command(feed, color, game, [0, 0])
 
             if isinstance(command, RollCommand) or \
                     isinstance(command, DoubleCommand):
                 return command
+            if isinstance(command, Error):
+                sys.stdout.write('{}\n'.format(command.get_message()))
+                continue
             sys.stdout.write('Invalid command.\n')
 
     @staticmethod
@@ -193,9 +199,10 @@ class CommandLinePlayer(Player):
         return result
 
     def parse_command(
-            self, feed: str, color: Color, board: Board, dice: DICE) \
+            self, feed: str, color: Color, game: Game, dice: DICE) \
                 -> Union[Command, Error]:
         """Parse a command."""
+        board = game.board
         feed = feed.strip()
 
         if 'help' == feed:
@@ -214,8 +221,7 @@ class CommandLinePlayer(Player):
             return Error('listed {} moves'.format(len(moves)))
 
         if 'show' == feed:
-            board.print()
-            sys.stdout.write('Rolled {}-{} '.format(dice[0], dice[1]))
+            game.print()
             return Error('')
 
         if '' == feed or 'roll' == feed:

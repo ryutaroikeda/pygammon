@@ -120,7 +120,7 @@ class Player(metaclass=ABCMeta):
         """Make a command."""
 
     @abstractmethod
-    def make_move(self, color: 'Color', board: 'Board', dice: DICE) -> Move:
+    def make_move(self, color: 'Color', game: 'Game', dice: DICE) -> Move:
         """Make a move."""
 
     @abstractmethod
@@ -383,6 +383,8 @@ class Cube(Enum):
 class Game:
     """Represent a game of Backgammon."""
 
+    WIN_SCORE = 3
+
     def __init__(self, board: Board) -> None:
         self.stakes = 1
         self.cube = Cube.Centered
@@ -408,8 +410,33 @@ class Game:
 
     def play_round(self, black: Player, white: Player) -> None:
         """The main game loop."""
-        players = [black, white]
-        colors = [Color.Black, Color.White]
+        self.board.setup()
+        # Do the opening roll.
+        for _ in range(1, 10000):
+            dice = self._roll_dice()
+            if dice[0] == dice[1]:
+                continue
+            if dice[0] < dice[1]:
+                players = [black, white]
+                colors = [Color.Black, Color.White]
+            elif dice[1] < dice[0]:
+                players = [white, black]
+                colors = [Color.White, Color.Black]
+
+            player = players[1]
+            color = colors[1]
+            self.board.print()
+            sys.stdout.write('Rolled {}-{}\n'.format(dice[0], dice[1]))
+            move = player.make_move(color, self, dice)
+            if self.board.is_valid_move(color, dice, move):
+                self.board.do_move(color, move)
+            else:
+                sys.stdout.write(
+                    'Illegal move. {} forfeits round.\n'.format(
+                        color))
+                self.update_score(color.opposite())
+                return
+            break
 
         for _ in range(1, 1000):
             for player_index in range(0, 2):
@@ -457,7 +484,7 @@ class Game:
                 if 0 == len(legal_moves):
                     sys.stdout.write('No legal moves.\n')
                     continue
-                move = player.make_move(color, self.board, dice)
+                move = player.make_move(color, self, dice)
                 if self.board.is_valid_move(color, dice, move):
                     self.board.do_move(color, move)
                 else:
@@ -474,6 +501,17 @@ class Game:
 
         # Stalemates are impossible in backgammon
         sys.stdout.write('Something went wrong.\n')
+
+    def play_match(self, black: Player, white: Player) -> None:
+        """Play many rounds."""
+        for _ in range(0, 10000):
+            self.play_round(black, white)
+            if Game.WIN_SCORE < self.black_score:
+                sys.stdout.write('Black wins the match!\n')
+                return
+            elif Game.WIN_SCORE < self.white_score:
+                sys.stdout.write('White wins the match!\n')
+                return
 
     def print(self) -> None:
         """Print the game."""
