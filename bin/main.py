@@ -11,4 +11,4 @@ cmd_player = CommandLinePlayer()
 cmd_player_2 = CommandLinePlayer()
 
 game = Game(board)
-game.play_match(random_player, random_player_2)
+game.play_match(random_player, cmd_player)

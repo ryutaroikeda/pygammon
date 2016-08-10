@@ -409,22 +409,32 @@ class Game:
     def _roll_dice() -> DICE:
         return [random.randint(1, 6), random.randint(1, 6)]
 
+    def _did_win_by_resignition(self, winner: Color) -> bool:
+        """Check if the game was won by resignition."""
+        return self.board.get_checkers(winner, Board.BEARING_OFF_POS) < 15
+
     def _calculate_score_for_winner(self, winner: Color) -> int:
         """Get the score earned by the winner this round."""
         base = 1
+        if self._did_win_by_resignition(winner):
+            return self.stakes
         if self.board.is_gammon(winner):
             base = 2
         if self.board.is_backgammon(winner):
             base = 3
         return self.stakes * base
 
-    def update_score(self, winner: Color) -> None:
+    def update_score(self, winner: Color, did_win_by_forfeit: bool) -> None:
         """Update the winner's score."""
         score = self._calculate_score_for_winner(winner)
         if Color.White == winner:
             self.white_score += score
+            if did_win_by_forfeit:
+                self.white_score = Game.WIN_SCORE
         else:
             self.black_score += score
+            if did_win_by_forfeit:
+                self.black_score = Game.WIN_SCORE
 
     def play_round(self, black: Player, white: Player) -> None:
         """The main game loop."""
@@ -450,9 +460,9 @@ class Game:
                 self.board.do_move(color, move)
             else:
                 sys.stdout.write(
-                    'Illegal move. {} forfeits round.\n'.format(
+                    'Illegal move. {} forfeits match.\n'.format(
                         color))
-                self.update_score(color.opposite())
+                self.update_score(color.opposite(), True)
                 return
             break
 
@@ -480,19 +490,19 @@ class Game:
                         elif isinstance(response, ResignCommand):
                             sys.stdout.write('{} resigns.\n'.format(
                                 color.opposite()))
-                            self.update_score(color)
+                            self.update_score(color, False)
                             return
                         else:
                             sys.stdout.write('Illegal respoonse. ' + \
-                                '{} forfeits round.\n'.format(
+                                '{} forfeits match.\n'.format(
                                     color.opposite()))
-                            self.update_score(color)
+                            self.update_score(color, True)
                             return
                 elif not isinstance(command, RollCommand):
                     sys.stdout.write(
-                        'Illegal command. {} forfeits round.\n'.format(
+                        'Illegal command. {} forfeits match.\n'.format(
                             color))
-                    self.update_score(color.opposite())
+                    self.update_score(color.opposite(), True)
                     return
 
                 # Roll dice.
@@ -507,14 +517,14 @@ class Game:
                     self.board.do_move(color, move)
                 else:
                     sys.stdout.write(
-                        'Illegal move. {} forfeits round.\n'.format(
+                        'Illegal move. {} forfeits match.\n'.format(
                             color))
-                    self.update_score(color.opposite())
+                    self.update_score(color.opposite(), True)
                     return
 
                 if self.board.is_winner(color):
                     sys.stdout.write('{} wins!\n'.format(color))
-                    self.update_score(color)
+                    self.update_score(color, False)
                     return
 
         # Stalemates are impossible in backgammon
@@ -524,10 +534,10 @@ class Game:
         """Play many rounds."""
         for _ in range(0, 10000):
             self.play_round(black, white)
-            if Game.WIN_SCORE < self.black_score:
+            if Game.WIN_SCORE <= self.black_score:
                 sys.stdout.write('Black wins the match!\n')
                 return
-            elif Game.WIN_SCORE < self.white_score:
+            elif Game.WIN_SCORE <= self.white_score:
                 sys.stdout.write('White wins the match!\n')
                 return
 
