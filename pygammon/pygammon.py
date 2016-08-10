@@ -320,6 +320,19 @@ class Board:
         for submove in reversed(move.submoves):
             self.do_submove(color, submove)
 
+    def is_gammon(self, color: Color) -> bool:
+        """Check if the player won a gammon."""
+        return self.get_checkers(color.opposite(), Board.BEARING_OFF_POS) <= 0
+
+    def is_backgammon(self, color: Color) -> bool:
+        """Check if the player won a backgammon."""
+        if not self.is_gammon(color):
+            return False
+        for pos in range(Board.HOME_POS, Board.BEARING_OFF_POS):
+            if 0 < self.get_opposite_checkers(color, pos):
+                return True
+        return False
+
     def is_winner(self, color: Color) -> bool:
         """Check if the player won the game."""
         return 15 <= self.get_checkers(color, Board.BEARING_OFF_POS)
@@ -396,13 +409,18 @@ class Game:
     def _roll_dice() -> DICE:
         return [random.randint(1, 6), random.randint(1, 6)]
 
-    def _calculate_score_for_winner(self) -> int:
+    def _calculate_score_for_winner(self, winner: Color) -> int:
         """Get the score earned by the winner this round."""
-        return self.stakes
+        base = 1
+        if self.board.is_gammon(winner):
+            base = 2
+        if self.board.is_backgammon(winner):
+            base = 3
+        return self.stakes * base
 
     def update_score(self, winner: Color) -> None:
         """Update the winner's score."""
-        score = self._calculate_score_for_winner()
+        score = self._calculate_score_for_winner(winner)
         if Color.White == winner:
             self.white_score += score
         else:
